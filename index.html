@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .order {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .order-items {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        .status-new {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        .status-processing {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        .status-delivered {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        .status-cancelled {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        .button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .button-process {
+            background-color: #2196f3;
+            color: white;
+        }
+        .button-deliver {
+            background-color: #4caf50;
+            color: white;
+        }
+        .button-cancel {
+            background-color: #f44336;
+            color: white;
+        }
+        .filters {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Управление заказами</h1>
+    
+    <div class="filters">
+        <label>
+            Фильтр по статусу:
+            <select id="statusFilter" onchange="filterOrders()">
+                <option value="all">Все заказы</option>
+                <option value="new">Новые</option>
+                <option value="processing">В обработке</option>
+                <option value="delivered">Доставленные</option>
+                <option value="cancelled">Отмененные</option>
+            </select>
+        </label>
+    </div>
+
+    <div id="orders">
+        <!-- Сюда будут загружены заказы -->
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        let allOrders = [];
+
+        // Функция для загрузки заказов
+        async function loadOrders() {
+            try {
+                const response = await fetch('http://127.0.0.1:5001/api/orders', {
+                    method: 'GET',
+                });
+                allOrders = await response.json();
+                filterOrders();
+            } catch (error) {
+                console.error('Ошибка при загрузке заказов:', error);
+                document.getElementById('orders').innerHTML = '<p style="color: red;">Ошибка при загрузке заказов</p>';
+            }
+        }
+
+        // Функция фильтрации заказов
+        function filterOrders() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const filteredOrders = statusFilter === 'all' 
+                ? allOrders 
+                : allOrders.filter(order => order.status.toLowerCase() === statusFilter);
+            
+            displayOrders(filteredOrders);
+        }
+
+        // Функция для преобразования координат в ссылку на Яндекс Карты
+        function formatAddress(address) {
+            const coordsMatch = address.match(/latitude: ([\d.]+), longitude: ([\d.]+)/);
+            if (coordsMatch) {
+                const [_, lat, lon] = coordsMatch;
+                return `<a href="https://yandex.ru/maps/?pt=${lon},${lat}&z=17&l=map" target="_blank">Открыть на карте</a>`;
+            }
+            return address;
+        }
+
+        // Функция отображения заказов
+        function displayOrders(orders) {
+            const ordersContainer = document.getElementById('orders');
+            ordersContainer.innerHTML = '';
+
+            orders.forEach(order => {
+                const orderElement = document.createElement('div');
+                orderElement.className = 'order';
+                
+                const statusClass = `status-${order.status.toLowerCase()}`;
+                
+                let itemsHtml = order.items.map(item => `
+                    <div>
+                        ${item.product_name} - ${item.quantity} шт. x ${item.price} = ${item.quantity * item.price} сум
+                    </div>
+                `).join('');
+
+                orderElement.innerHTML = `
+                    <div class="order-header">
+                        <h3>Заказ #${order.id}</h3>
+                        <span class="status ${statusClass}">${order.status}</span>
+                    </div>
+                    <p><strong>Клиент:</strong> ${order.user_name}</p>
+                    <p><strong>Телефон:</strong> ${order.phone}</p>
+                    <p><strong>Адрес:</strong> ${formatAddress(order.address)}</p>
+                    <p><strong>Дата:</strong> ${order.created_at}</p>
+                    <div class="order-items">
+                        <strong>Состав заказа:</strong>
+                        ${itemsHtml}
+                        <div style="margin-top: 10px;">
+                            <strong>Итого:</strong> ${order.total_amount} сум
+                        </div>
+                    </div>
+                    <div>
+                        <button class="button button-process" onclick="changeStatus(${order.id}, 'processing')">
+                            В обработку
+                        </button>
+                        <button class="button button-deliver" onclick="changeStatus(${order.id}, 'delivered')">
+                            Доставлен
+                        </button>
+                        <button class="button button-cancel" onclick="changeStatus(${order.id}, 'cancelled')">
+                            Отменить
+                        </button>
+                    </div>
+                `;
+                ordersContainer.appendChild(orderElement);
+            });
+        }
+
+        // Функция для изменения статуса заказа
+        async function changeStatus(orderId, newStatus) {
+            try {
+                const response = await fetch(`http://127.0.0.1:5001/api/change-status?orderId=${orderId}&status=${newStatus}`, {
+                    method: 'POST',
+
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Обновляем статус в локальном массиве
+                    const order = allOrders.find(o => o.id === orderId);
+                    if (order) {
+                        order.status = newStatus;
+                        filterOrders(); // Перерисовываем с учетом фильтров
+                    }
+                } else {
+                    alert('Ошибка при изменении статуса: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Ошибка при изменении статуса:', error);
+                alert('Произошла ошибка при изменении статуса заказа');
+            }
+        }
+
+        // Загружаем заказы при загрузке страницы
+        window.onload = loadOrders;
+    </script>
+</body>
+</html>
