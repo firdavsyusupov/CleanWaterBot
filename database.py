@@ -158,15 +158,17 @@ class Database:
             user = session.query(User).filter_by(telegram_id=telegram_id).first()
             if not user:
                 return []
-                
+
             cart_items = session.query(Cart, Product).join(Product).filter(Cart.user_id == user.id).all()
+
             return [
                 {
                     'id': item.Cart.id,
                     'product_id': item.Cart.product_id,
                     'name': item.Product.name_ru,
                     'price': item.Product.price,
-                    'quantity': item.Cart.quantity
+                    'quantity': item.Cart.quantity,
+                    'is_promo': item.Product.is_promo
                 }
                 for item in cart_items
             ]
@@ -258,7 +260,7 @@ class Database:
                 )
                 session.add(user)
                 session.flush()
-            
+
             # Создаем заказ
             order = Order(
                 user_id=user.id,
@@ -270,11 +272,11 @@ class Database:
             )
             session.add(order)
             session.flush()  # Чтобы получить order.id
-            
+
             # Добавляем товары в заказ
             total_amount = 0
             cart = session.query(Cart).filter_by(user_id=user.id).all()
-            
+
             for cart_item in cart:
                 product = session.query(Product).filter_by(id=cart_item.product_id).first()
                 if product:
@@ -287,17 +289,39 @@ class Database:
                     )
                     session.add(order_item)
                     total_amount += product.price * cart_item.quantity
-            
+
+                    if product.is_promo and user.is_first_usage:
+                        order_item = OrderItem(
+                            order_id=order.id,
+                            product_id=product.id,
+                            quantity=2,
+                            price=0
+                        )
+                        session.add(order_item)
+                    elif product.is_promo and cart_item.quantity >= 5:
+                        quantity = cart_item.quantity // 5
+                        order_item = OrderItem(
+                            order_id=order.id,
+                            product_id=product.id,
+                            quantity=quantity,
+                            price=0
+                        )
+                        session.add(order_item)
+                        
+
+
             # Обновляем общую сумму заказа
             order.total_amount = total_amount
-            
+            user.is_first_usage = False
+
+
             # Очищаем корзину
             session.query(Cart).filter_by(user_id=user.id).delete()
-            
+
             session.commit()
             logger.info(f"Order created: #{order.id} for user {order_data['user_id']}")
             return order.id
-            
+
         except Exception as e:
             logger.error(f"Error creating order: {e}")
             session.rollback()

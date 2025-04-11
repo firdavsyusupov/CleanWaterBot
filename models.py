@@ -15,6 +15,7 @@ class User(Base):
     phone = Column(String)
     address = Column(String)
     is_admin = Column(Boolean, default=False)
+    is_first_usage = Column(Boolean, default=True)
     
     orders = relationship("Order", back_populates="user", lazy='dynamic')  
     cart = relationship("Cart", back_populates="user", lazy='dynamic')
@@ -29,6 +30,8 @@ class Product(Base):
     description_uz = Column(String)
     price = Column(Float)
     photo_id = Column(String)
+    is_promo = Column(Boolean, default=False)
+
     
     cart_items = relationship("Cart", back_populates="product")
     order_items = relationship("OrderItem", back_populates="product")

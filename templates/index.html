@@ -38,22 +38,10 @@
             border-radius: 15px;
             font-weight: bold;
         }
-        .status-new {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        .status-processing {
-            background: #fff3e0;
-            color: #f57c00;
-        }
-        .status-delivered {
-            background: #e8f5e9;
-            color: #388e3c;
-        }
-        .status-cancelled {
-            background: #ffebee;
-            color: #d32f2f;
-        }
+        .status-new { background: #e3f2fd; color: #1976d2; }
+        .status-processing { background: #fff3e0; color: #f57c00; }
+        .status-delivered { background: #e8f5e9; color: #388e3c; }
+        .status-cancelled { background: #ffebee; color: #d32f2f; }
         .button {
             padding: 8px 15px;
             border: none;
@@ -63,18 +51,9 @@
             font-weight: bold;
             transition: background-color 0.2s;
         }
-        .button-process {
-            background-color: #2196f3;
-            color: white;
-        }
-        .button-deliver {
-            background-color: #4caf50;
-            color: white;
-        }
-        .button-cancel {
-            background-color: #f44336;
-            color: white;
-        }
+        .button-process { background-color: #2196f3; color: white; }
+        .button-deliver { background-color: #4caf50; color: white; }
+        .button-cancel { background-color: #f44336; color: white; }
         .filters {
             margin-bottom: 20px;
             padding: 15px;
@@ -82,11 +61,31 @@
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .pagination {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .pagination button {
+            padding: 8px 12px;
+            margin: 5px;
+            border: none;
+            background: #1976d2;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .pagination button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <h1>Управление заказами</h1>
-    
+
     <div class="filters">
         <label>
             Фильтр по статусу:
@@ -101,40 +100,44 @@
     </div>
 
     <div id="orders">
-        <!-- Сюда будут загружены заказы -->
+        <!-- Заказы будут загружены здесь -->
+    </div>
+
+    <div class="pagination">
+        <button id="prevPage" onclick="prevPage()">⬅️ Назад</button>
+        <span id="pageInfo">Страница 1</span>
+        <button id="nextPage" onclick="nextPage()">Вперед ➡️</button>
     </div>
 
     <script>
         let tg = window.Telegram.WebApp;
         tg.expand();
-        
-        let allOrders = [];
+
+        let currentPage = 1;
+        let perPage = 5;
+        let totalOrders = 0;
+        let currentStatus = "all"; // По умолчанию все заказы
 
         // Функция для загрузки заказов
-        async function loadOrders() {
+        async function loadOrders(page = 1) {
+            const url = `http://127.0.0.1:5001/api/orders?page=${page}&per_page=${perPage}&status=${currentStatus}`;
+            
             try {
-                const response = await fetch('http://127.0.0.1:5001/api/orders', {
-                    method: 'GET',
-                });
-                allOrders = await response.json();
-                filterOrders();
+                const response = await fetch(url);
+                const data = await response.json();
+
+                totalOrders = data.total_orders;
+                currentPage = data.current_page;
+                perPage = data.per_page;
+
+                displayOrders(data.orders);
+                updatePaginationControls();
             } catch (error) {
-                console.error('Ошибка при загрузке заказов:', error);
+                console.error('Ошибка загрузки заказов:', error);
                 document.getElementById('orders').innerHTML = '<p style="color: red;">Ошибка при загрузке заказов</p>';
             }
         }
 
-        // Функция фильтрации заказов
-        function filterOrders() {
-            const statusFilter = document.getElementById('statusFilter').value;
-            const filteredOrders = statusFilter === 'all' 
-                ? allOrders 
-                : allOrders.filter(order => order.status.toLowerCase() === statusFilter);
-            
-            displayOrders(filteredOrders);
-        }
-
-        // Функция для преобразования координат в ссылку на Яндекс Карты
         function formatAddress(address) {
             const coordsMatch = address.match(/latitude: ([\d.]+), longitude: ([\d.]+)/);
             if (coordsMatch) {
@@ -144,7 +147,13 @@
             return address;
         }
 
-        // Функция отображения заказов
+        // Фильтрация заказов по статусу
+        function filterOrders() {
+            currentStatus = document.getElementById('statusFilter').value;
+            loadOrders(1); // Сбросить на первую страницу
+        }
+
+        // Отображение заказов
         function displayOrders(orders) {
             const ordersContainer = document.getElementById('orders');
             ordersContainer.innerHTML = '';
@@ -152,19 +161,15 @@
             orders.forEach(order => {
                 const orderElement = document.createElement('div');
                 orderElement.className = 'order';
-                
-                const statusClass = `status-${order.status.toLowerCase()}`;
-                
+
                 let itemsHtml = order.items.map(item => `
-                    <div>
-                        ${item.product_name} - ${item.quantity} шт. x ${item.price} = ${item.quantity * item.price} сум
-                    </div>
+                    <div>${item.product_name} - ${item.quantity} шт. x ${item.price} = ${item.quantity * item.price} сум</div>
                 `).join('');
 
                 orderElement.innerHTML = `
                     <div class="order-header">
                         <h3>Заказ #${order.id}</h3>
-                        <span class="status ${statusClass}">${order.status}</span>
+                        <span class="status status-${order.status.toLowerCase()}">${order.status}</span>
                     </div>
                     <p><strong>Клиент:</strong> ${order.user_name}</p>
                     <p><strong>Телефон:</strong> ${order.phone}</p>
@@ -178,37 +183,25 @@
                         </div>
                     </div>
                     <div>
-                        <button class="button button-process" onclick="changeStatus(${order.id}, 'processing')">
-                            В обработку
-                        </button>
-                        <button class="button button-deliver" onclick="changeStatus(${order.id}, 'delivered')">
-                            Доставлен
-                        </button>
-                        <button class="button button-cancel" onclick="changeStatus(${order.id}, 'cancelled')">
-                            Отменить
-                        </button>
+                        <button class="button button-process" onclick="changeStatus(${order.id}, 'processing')">В обработку</button>
+                        <button class="button button-deliver" onclick="changeStatus(${order.id}, 'delivered')">Доставлен</button>
+                        <button class="button button-cancel" onclick="changeStatus(${order.id}, 'cancelled')">Отменить</button>
                     </div>
                 `;
                 ordersContainer.appendChild(orderElement);
             });
         }
 
-        // Функция для изменения статуса заказа
+        // Функция изменения статуса заказа
         async function changeStatus(orderId, newStatus) {
             try {
                 const response = await fetch(`http://127.0.0.1:5001/api/change-status?orderId=${orderId}&status=${newStatus}`, {
                     method: 'POST',
-
                 });
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    // Обновляем статус в локальном массиве
-                    const order = allOrders.find(o => o.id === orderId);
-                    if (order) {
-                        order.status = newStatus;
-                        filterOrders(); // Перерисовываем с учетом фильтров
-                    }
+                    loadOrders(currentPage); // Обновить список заказов
                 } else {
                     alert('Ошибка при изменении статуса: ' + result.message);
                 }
@@ -218,8 +211,20 @@
             }
         }
 
-        // Загружаем заказы при загрузке страницы
-        window.onload = loadOrders;
+        // Обновление пагинации
+        function updatePaginationControls() {
+            const totalPages = Math.ceil(totalOrders / perPage);
+            document.getElementById('pageInfo').textContent = `Страница ${currentPage} из ${totalPages}`;
+            document.getElementById('prevPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        }
+
+        // Пагинация
+        function nextPage() { if (currentPage * perPage < totalOrders) loadOrders(currentPage + 1); }
+        function prevPage() { if (currentPage > 1) loadOrders(currentPage - 1); }
+
+        // Загрузка заказов
+        window.onload = () => loadOrders(1);
     </script>
 </body>
 </html>
