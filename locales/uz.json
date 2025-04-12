@@ -58,6 +58,8 @@
     "status": "",
     "items": "",
     "order_status": "",
+    "share_contact": "Telefon raqamni yuborish",
+    "share_location": "Manzilni yuborish",
     "bonus_items": "bonus mahsulotlar",
     "total_with_bonus": "Bonus bilan jami",
     "first_order_promo": "🎉 Birinchi buyurtma uchun maxsus taklif: +2 ta mahsulot sovg'a!",

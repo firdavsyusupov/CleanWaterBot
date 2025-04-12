@@ -284,20 +284,59 @@ class EcommerceBot:
                         )
                 return VIEWING_PRODUCTS
                 
+            # elif text == cart_text:
+            #     logging.info("Cart button pressed")
+            #     cart = self.db.get_cart(user_id)
+            #     if not cart:
+            #         await message.reply_text(self.get_text(language, "cart_empty"))
+            #     else:
+            #         cart_text = f"{self.get_text(language, 'cart_header')}\n\n"
+            #         total = 0
+            #         for item in cart:
+            #             subtotal = item['price'] * item['quantity']
+            #             total += subtotal
+            #             cart_text += f"{item['name']} x{item['quantity']} = {subtotal} {self.get_text(language, 'currency')}\n"
+            #         cart_text += f"\n{self.get_text(language, 'total')}: {total} {self.get_text(language, 'currency')}"
+                    
+            #         keyboard = [
+            #             [KeyboardButton(self.get_text(language, "checkout"))],
+            #             [KeyboardButton(self.get_text(language, "clear_cart"))],
+            #             [KeyboardButton(self.get_text(language, "back_to_menu"))]
+            #         ]
+            #         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            #         await message.reply_text(cart_text, reply_markup=reply_markup)
+            #     return CART
             elif text == cart_text:
                 logging.info("Cart button pressed")
                 cart = self.db.get_cart(user_id)
+                user = self.db.get_user(user_id)
                 if not cart:
                     await message.reply_text(self.get_text(language, "cart_empty"))
                 else:
                     cart_text = f"{self.get_text(language, 'cart_header')}\n\n"
+                    bonus_text = ""
                     total = 0
                     for item in cart:
                         subtotal = item['price'] * item['quantity']
                         total += subtotal
                         cart_text += f"{item['name']} x{item['quantity']} = {subtotal} {self.get_text(language, 'currency')}\n"
-                    cart_text += f"\n{self.get_text(language, 'total')}: {total} {self.get_text(language, 'currency')}"
+                        if user.is_first_usage and item['is_promo']:
+                            bonus_text += f"{item['name']} x2 = 0 {self.get_text(language, 'currency')}\n"
+
+                        elif item['is_promo'] and item['quantity'] >= 5:
+                            quantity = item['quantity'] // 5
+                            bonus_text += f"{item['name']} x{quantity} = 0 {self.get_text(language, 'currency')}\n"
+                        
                     
+                    if user.is_first_usage and bonus_text:
+                        cart_text += "\nBonus:\n"
+                        cart_text += bonus_text
+                    elif bonus_text:
+                        cart_text += "\nBonus:\n"
+                        cart_text += bonus_text
+
+                    cart_text += f"\n{self.get_text(language, 'total')}: {total} {self.get_text(language, 'currency')}"
+
                     keyboard = [
                         [KeyboardButton(self.get_text(language, "checkout"))],
                         [KeyboardButton(self.get_text(language, "clear_cart"))],
