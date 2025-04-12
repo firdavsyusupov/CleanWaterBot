@@ -53,18 +53,32 @@ def get_orders():
 
         query = session.query(Order)
 
-        if status_filter and status_filter != 'all':
+        if status_filter != 'all':
             query = query.filter(Order.status == status_filter)
 
-        total_orders = query.count()  # Get total filtered orders count
+        total_orders = query.count()
+
         orders = query.order_by(Order.created_at.desc()) \
-            .offset((page - 1) * per_page) \
-            .limit(per_page) \
-            .all()
+                      .offset((page - 1) * per_page) \
+                      .limit(per_page) \
+                      .all()
 
         orders_list = []
         for order in orders:
-            items = [{"product_name": item.product.name_ru, "quantity": item.quantity, "price": item.price} for item in order.items]
+            items = []
+            for item in order.items:
+                # Безопасная проверка
+                if item.product is not None:
+                    product_name = item.product.name_ru
+                else:
+                    product_name = "Неизвестный продукт"
+
+                items.append({
+                    'product_name': product_name,
+                    'quantity': item.quantity,
+                    'price': item.price
+                })
+
             orders_list.append({
                 'id': order.id,
                 'user_name': order.name,
@@ -80,74 +94,44 @@ def get_orders():
             "orders": orders_list,
             "total_orders": total_orders,
             "current_page": page,
-            "per_page": per_page
-        })
-    finally:
-        session.close()
-
-    session = Session()
-    try:
-        # Get pagination parameters (default page=1, per_page=10)
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-
-        # Query total orders count
-        total_orders = session.query(Order).count()
-
-        # Fetch orders with pagination
-        orders = (
-            session.query(Order)
-            .order_by(Order.created_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-            .all()
-        )
-
-        # Construct response
-        orders_list = []
-        for order in orders:
-            items = [{"product_name": item.product.name_ru, "quantity": item.quantity, "price": item.price} for item in order.items]
-            
-            orders_list.append({
-                'id': order.id,
-                'user_name': order.name,
-                'phone': order.phone,
-                'address': order.address,
-                'total_amount': order.total_amount,
-                'status': order.status,
-                'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'items': items
-            })
-
-        # Return paginated response
-        return jsonify({
-            "orders": orders_list,
-            "total_orders": total_orders,
-            "page": page,
             "per_page": per_page,
-            "has_next": (page * per_page) < total_orders  # True if more pages exist
+            "has_next": (page * per_page) < total_orders
         })
+
     finally:
         session.close()
+
 
 @app.route('/api/change-status', methods=['POST'])
 def change_status():
     session = Session()
     try:
-        order_id = int(request.args.get('orderId'))
+        order_id_raw = request.args.get('orderId')
         new_status = request.args.get('status')
-        
+
+        if not order_id_raw or not new_status:
+            return jsonify({"success": False, "message": "orderId и status обязательны!"}), 400
+
+        try:
+            order_id = int(order_id_raw)
+        except ValueError:
+            return jsonify({"success": False, "message": "Неверный формат orderId"}), 400
+
         order = session.query(Order).filter(Order.id == order_id).first()
         if order and order.status != new_status:
             user = session.query(User).filter(User.id == order.user_id).first()
 
             status_messages = {
-                'processing': '🔄 Ваш заказ №{} принят в обработку',
-                'delivered': '✅ Ваш заказ №{} успешно доставлен',
-                'cancelled': '❌ Ваш заказ №{} отменен'
+                'processing': f'🔄 Ваш заказ №{order_id} принят в обработку',
+                'delivered': f'✅ Ваш заказ №{order_id} успешно доставлен',
+                'cancelled': f'❌ Ваш заказ №{order_id} отменен'
             }
 
-            message = status_messages.get(new_status, 'Статус вашего заказа №{} изменен на: {}').format(order_id, new_status)
+            message = status_messages.get(
+                new_status,
+                f'Статус вашего заказа №{order_id} изменен на: {new_status}'
+            )
+
             order.status = new_status
             session.commit()
 
@@ -159,12 +143,14 @@ def change_status():
 
             return jsonify({"success": True, "message": f"Статус заказа #{order_id} изменен на {new_status}"})
         else:
-            return jsonify({"success": False, "message": "Заказ не найден или уже в этом статусе!"}), 404
+            return jsonify({"success": False, "message": "Заказ не найден или заказ уже в данном статусе!"}), 404
+
     except Exception as e:
         session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
     finally:
         session.close()
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)

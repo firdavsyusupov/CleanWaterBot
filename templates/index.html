@@ -86,145 +86,158 @@
 <body>
     <h1>Управление заказами</h1>
 
-    <div class="filters">
-        <label>
-            Фильтр по статусу:
-            <select id="statusFilter" onchange="filterOrders()">
-                <option value="all">Все заказы</option>
-                <option value="new">Новые</option>
-                <option value="processing">В обработке</option>
-                <option value="delivered">Доставленные</option>
-                <option value="cancelled">Отмененные</option>
-            </select>
-        </label>
-    </div>
+<div class="filters">
+    <label>
+        Фильтр по статусу:
+        <select id="statusFilter" onchange="filterOrders()">
+            <option value="all">Все заказы</option>
+            <option value="new">Новые</option>
+            <option value="processing">В обработке</option>
+            <option value="delivered">Доставленные</option>
+            <option value="cancelled">Отмененные</option>
+        </select>
+    </label>
+</div>
 
-    <div id="orders">
-        <!-- Заказы будут загружены здесь -->
-    </div>
+<div id="orders">
+    <!-- Заказы будут загружены здесь -->
+</div>
 
-    <div class="pagination">
-        <button id="prevPage" onclick="prevPage()">⬅️ Назад</button>
-        <span id="pageInfo">Страница 1</span>
-        <button id="nextPage" onclick="nextPage()">Вперед ➡️</button>
-    </div>
+<div class="pagination">
+    <button id="prevPage" onclick="prevPage()">⬅️ Назад</button>
+    <span id="pageInfo">Страница 1</span>
+    <button id="nextPage" onclick="nextPage()">Вперед ➡️</button>
+</div>
 
-    <script>
-        let tg = window.Telegram.WebApp;
-        tg.expand();
+<script>
+    let tg = window.Telegram?.WebApp;
+    tg?.expand(); // Проверка на существование, если Telegram WebApp не подключен
 
-        let currentPage = 1;
-        let perPage = 5;
-        let totalOrders = 0;
-        let currentStatus = "all"; // По умолчанию все заказы
+    let currentPage = 1;
+    let perPage = 5;
+    let totalOrders = 0;
+    let currentStatus = "all";
 
-        // Функция для загрузки заказов
-        async function loadOrders(page = 1) {
-            const url = `http://127.0.0.1:5001/api/orders?page=${page}&per_page=${perPage}&status=${currentStatus}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
+    // Загрузка заказов
+    async function loadOrders(page = 1) {
+        const url = `http://127.0.0.1:5001/api/orders?page=${page}&per_page=${perPage}&status=${currentStatus}`;
 
-                totalOrders = data.total_orders;
-                currentPage = data.current_page;
-                perPage = data.per_page;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+            const data = await response.json();
 
-                displayOrders(data.orders);
-                updatePaginationControls();
-            } catch (error) {
-                console.error('Ошибка загрузки заказов:', error);
-                document.getElementById('orders').innerHTML = '<p style="color: red;">Ошибка при загрузке заказов</p>';
-            }
+            totalOrders = data.total_orders;
+            currentPage = data.current_page;
+            perPage = data.per_page;
+
+            displayOrders(data.orders);
+            updatePaginationControls();
+        } catch (error) {
+            console.error('Ошибка загрузки заказов:', error);
+            document.getElementById('orders').innerHTML = '<p style="color: red;">Ошибка при загрузке заказов</p>';
+        }
+    }
+
+    // Отображение заказов
+    function displayOrders(orders) {
+        const ordersContainer = document.getElementById('orders');
+        ordersContainer.innerHTML = '';
+
+        if (orders.length === 0) {
+            ordersContainer.innerHTML = '<p>Нет заказов по выбранному фильтру.</p>';
+            return;
         }
 
-        function formatAddress(address) {
-            const coordsMatch = address.match(/latitude: ([\d.]+), longitude: ([\d.]+)/);
-            if (coordsMatch) {
-                const [_, lat, lon] = coordsMatch;
-                return `<a href="https://yandex.ru/maps/?pt=${lon},${lat}&z=17&l=map" target="_blank">Открыть на карте</a>`;
-            }
-            return address;
+        orders.forEach(order => {
+            const orderElement = document.createElement('div');
+            orderElement.className = 'order';
+
+            const itemsHtml = order.items.map(item => `
+                <div>${item.product_name} - ${item.quantity} шт. x ${item.price} = ${item.quantity * item.price} сум</div>
+            `).join('');
+
+            orderElement.innerHTML = `
+                <div class="order-header">
+                    <h3>Заказ #${order.id}</h3>
+                    <span class="status status-${order.status.toLowerCase()}">${order.status}</span>
+                </div>
+                <p><strong>Клиент:</strong> ${order.user_name}</p>
+                <p><strong>Телефон:</strong> ${order.phone}</p>
+                <p><strong>Адрес:</strong> ${formatAddress(order.address)}</p>
+                <p><strong>Дата:</strong> ${order.created_at}</p>
+                <div class="order-items">
+                    <strong>Состав заказа:</strong>
+                    ${itemsHtml}
+                    <div style="margin-top: 10px;">
+                        <strong>Итого:</strong> ${order.total_amount} сум
+                    </div>
+                </div>
+                <div>
+                    <button class="button button-process" onclick="changeStatus(${order.id}, 'processing')">В обработку</button>
+                    <button class="button button-deliver" onclick="changeStatus(${order.id}, 'delivered')">Доставлен</button>
+                    <button class="button button-cancel" onclick="changeStatus(${order.id}, 'cancelled')">Отменить</button>
+                </div>
+            `;
+            ordersContainer.appendChild(orderElement);
+        });
+    }
+
+    // Преобразование адреса
+    function formatAddress(address) {
+        const coordsMatch = address.match(/latitude: ([\d.]+), longitude: ([\d.]+)/);
+        if (coordsMatch) {
+            const [_, lat, lon] = coordsMatch;
+            return `<a href="https://yandex.ru/maps/?pt=${lon},${lat}&z=17&l=map" target="_blank">Открыть на карте</a>`;
         }
+        return address;
+    }
 
-        // Фильтрация заказов по статусу
-        function filterOrders() {
-            currentStatus = document.getElementById('statusFilter').value;
-            loadOrders(1); // Сбросить на первую страницу
-        }
-
-        // Отображение заказов
-        function displayOrders(orders) {
-            const ordersContainer = document.getElementById('orders');
-            ordersContainer.innerHTML = '';
-
-            orders.forEach(order => {
-                const orderElement = document.createElement('div');
-                orderElement.className = 'order';
-
-                let itemsHtml = order.items.map(item => `
-                    <div>${item.product_name} - ${item.quantity} шт. x ${item.price} = ${item.quantity * item.price} сум</div>
-                `).join('');
-
-                orderElement.innerHTML = `
-                    <div class="order-header">
-                        <h3>Заказ #${order.id}</h3>
-                        <span class="status status-${order.status.toLowerCase()}">${order.status}</span>
-                    </div>
-                    <p><strong>Клиент:</strong> ${order.user_name}</p>
-                    <p><strong>Телефон:</strong> ${order.phone}</p>
-                    <p><strong>Адрес:</strong> ${formatAddress(order.address)}</p>
-                    <p><strong>Дата:</strong> ${order.created_at}</p>
-                    <div class="order-items">
-                        <strong>Состав заказа:</strong>
-                        ${itemsHtml}
-                        <div style="margin-top: 10px;">
-                            <strong>Итого:</strong> ${order.total_amount} сум
-                        </div>
-                    </div>
-                    <div>
-                        <button class="button button-process" onclick="changeStatus(${order.id}, 'processing')">В обработку</button>
-                        <button class="button button-deliver" onclick="changeStatus(${order.id}, 'delivered')">Доставлен</button>
-                        <button class="button button-cancel" onclick="changeStatus(${order.id}, 'cancelled')">Отменить</button>
-                    </div>
-                `;
-                ordersContainer.appendChild(orderElement);
+    // Изменение статуса заказа
+    async function changeStatus(orderId, newStatus) {
+        try {
+            const response = await fetch(`http://127.0.0.1:5001/api/change-status?orderId=${orderId}&status=${newStatus}`, {
+                method: 'POST'
             });
-        }
+            if (!response.ok) throw new Error(`Ошибка ${response.status}`);
+            const result = await response.json();
 
-        // Функция изменения статуса заказа
-        async function changeStatus(orderId, newStatus) {
-            try {
-                const response = await fetch(`http://127.0.0.1:5001/api/change-status?orderId=${orderId}&status=${newStatus}`, {
-                    method: 'POST',
-                });
-                const result = await response.json();
-
-                if (result.success) {
-                    loadOrders(currentPage); // Обновить список заказов
-                } else {
-                    alert('Ошибка при изменении статуса: ' + result.message);
-                }
-            } catch (error) {
-                console.error('Ошибка при изменении статуса:', error);
-                alert('Произошла ошибка при изменении статуса заказа');
+            if (result.success) {
+                loadOrders(currentPage);
+            } else {
+                alert('Ошибка при изменении статуса: ' + result.message);
             }
+        } catch (error) {
+            console.error('Ошибка при изменении статуса:', error);
+            alert('Произошла ошибка при изменении статуса заказа');
         }
+    }
 
-        // Обновление пагинации
-        function updatePaginationControls() {
-            const totalPages = Math.ceil(totalOrders / perPage);
-            document.getElementById('pageInfo').textContent = `Страница ${currentPage} из ${totalPages}`;
-            document.getElementById('prevPage').disabled = currentPage <= 1;
-            document.getElementById('nextPage').disabled = currentPage >= totalPages;
-        }
+    // Фильтрация по статусу
+    function filterOrders() {
+        currentStatus = document.getElementById('statusFilter').value;
+        loadOrders(1); // Сбросить на первую страницу
+    }
 
-        // Пагинация
-        function nextPage() { if (currentPage * perPage < totalOrders) loadOrders(currentPage + 1); }
-        function prevPage() { if (currentPage > 1) loadOrders(currentPage - 1); }
+    // Пагинация
+    function nextPage() {
+        const totalPages = Math.ceil(totalOrders / perPage);
+        if (currentPage < totalPages) loadOrders(currentPage + 1);
+    }
 
-        // Загрузка заказов
-        window.onload = () => loadOrders(1);
-    </script>
+    function prevPage() {
+        if (currentPage > 1) loadOrders(currentPage - 1);
+    }
+
+    function updatePaginationControls() {
+        const totalPages = Math.ceil(totalOrders / perPage);
+        document.getElementById('pageInfo').textContent = `Страница ${currentPage} из ${totalPages}`;
+        document.getElementById('prevPage').disabled = currentPage <= 1;
+        document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    }
+
+    window.onload = () => loadOrders(1);
+</script>
+
 </body>
 </html>
