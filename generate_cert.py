@@ -9,7 +9,8 @@ def generate_self_signed_cert():
 
     # Создание сертификата
     cert = crypto.X509()
-    cert.get_subject().CN = "192.168.1.27"  # Используем ваш IP
+    # cert.get_subject().CN = "192.168.1.27"  # Используем ваш IP
+    cert.get_subject().CN = "194.163.152.59"
     cert.set_serial_number(1000)
     cert.gmtime_adj_notBefore(0)
     cert.gmtime_adj_notAfter(365 * 24 * 60 * 60)  # Действителен 1 год
@@ -20,7 +21,8 @@ def generate_self_signed_cert():
     alt_names = [
         b"DNS:localhost",
         b"IP:192.168.1.27",  # Ваш IP
-        b"IP:127.0.0.1"
+        b"IP:127.0.0.1",
+        b"IP:194.163.152.59"
     ]
 
     alt_names_ext = crypto.X509Extension(
