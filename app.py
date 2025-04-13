@@ -103,7 +103,7 @@ def get_orders():
 
 
 @app.route('/api/change-status', methods=['POST'])
-def change_status(self, ):
+def change_status():
     session = Session()
     try:
         order_id_raw = request.args.get('orderId')
@@ -127,9 +127,9 @@ def change_status(self, ):
             #     'cancelled': f'❌ Ваш заказ №{order_id} отменен'
             # }
             status_messages = {
-                'processing': lambda lang, order_id: self.get_text(lang, 'status_processing').format(order_id=order_id),
-                'delivered': lambda lang, order_id: self.get_text(lang, 'status_delivered').format(order_id=order_id),
-                'cancelled': lambda lang, order_id: self.get_text(lang, 'status_cancelled').format(order_id=order_id),
+                'processing': lambda lang, order_id: get_text(lang, 'status_processing').format(order_id=order_id),
+                'delivered': lambda lang, order_id: get_text(lang, 'status_delivered').format(order_id=order_id),
+                'cancelled': lambda lang, order_id: get_text(lang, 'status_cancelled').format(order_id=order_id),
             }
 
 
