@@ -103,7 +103,7 @@ def get_orders():
 
 
 @app.route('/api/change-status', methods=['POST'])
-def change_status():
+def change_status(self, ):
     session = Session()
     try:
         order_id_raw = request.args.get('orderId')
@@ -121,11 +121,17 @@ def change_status():
         if order and order.status != new_status:
             user = session.query(User).filter(User.id == order.user_id).first()
 
+            # status_messages = {
+            #     'processing': f'🔄 Ваш заказ №{order_id} принят в обработку',
+            #     'delivered': f'✅ Ваш заказ №{order_id} успешно доставлен',
+            #     'cancelled': f'❌ Ваш заказ №{order_id} отменен'
+            # }
             status_messages = {
-                'processing': f'🔄 Ваш заказ №{order_id} принят в обработку',
-                'delivered': f'✅ Ваш заказ №{order_id} успешно доставлен',
-                'cancelled': f'❌ Ваш заказ №{order_id} отменен'
+                'processing': lambda lang, order_id: self.get_text(lang, 'status_processing').format(order_id=order_id),
+                'delivered': lambda lang, order_id: self.get_text(lang, 'status_delivered').format(order_id=order_id),
+                'cancelled': lambda lang, order_id: self.get_text(lang, 'status_cancelled').format(order_id=order_id),
             }
+
 
             message = status_messages.get(
                 new_status,
