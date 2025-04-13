@@ -8,6 +8,7 @@ from models import User, Product, OrderItem, Order
 from config import config
 import asyncio
 import httpx
+from bot import EcommerceBot
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_secret_key_here'  # Required for Flask-Admin sessions
@@ -28,6 +29,7 @@ admin.add_view(ModelView(User, Session()))
 
 # Global HTTP client
 http_client = httpx.AsyncClient()
+bot_app = EcommerceBot()
 
 async def send_notification(user_id: int, message: str):
     try:
@@ -127,9 +129,9 @@ def change_status():
             #     'cancelled': f'❌ Ваш заказ №{order_id} отменен'
             # }
             status_messages = {
-                'processing': lambda lang, order_id: get_text(lang, 'status_processing').format(order_id=order_id),
-                'delivered': lambda lang, order_id: get_text(lang, 'status_delivered').format(order_id=order_id),
-                'cancelled': lambda lang, order_id: get_text(lang, 'status_cancelled').format(order_id=order_id),
+                'processing': lambda lang, order_id: bot_app.get_text(lang, 'status_processing').format(order_id=order_id),
+                'delivered': lambda lang, order_id: bot_app.get_text(lang, 'status_delivered').format(order_id=order_id),
+                'cancelled': lambda lang, order_id: bot_app.get_text(lang, 'status_cancelled').format(order_id=order_id),
             }
 
 
