@@ -104,6 +104,118 @@ def get_orders():
         session.close()
 
 
+# @app.route('/api/change-status', methods=['POST'])
+# def change_status():
+#     session = Session()
+#     try:
+#         order_id_raw = request.args.get('orderId')
+#         new_status = request.args.get('status')
+
+#         if not order_id_raw or not new_status:
+#             return jsonify({"success": False, "message": "orderId и status обязательны!"}), 400
+
+#         try:
+#             order_id = int(order_id_raw)
+#         except ValueError:
+#             return jsonify({"success": False, "message": "Неверный формат orderId"}), 400
+
+#         order = session.query(Order).filter(Order.id == order_id).first()
+#         if order and order.status != new_status:
+#             user = session.query(User).filter(User.id == order.user_id).first()
+
+#             # status_messages = {
+#             #     'processing': f'🔄 Ваш заказ №{order_id} принят в обработку',
+#             #     'delivered': f'✅ Ваш заказ №{order_id} успешно доставлен',
+#             #     'cancelled': f'❌ Ваш заказ №{order_id} отменен'
+#             # }
+#             status_messages = {
+#                 'processing': lambda lang, order_id: bot_app.get_text(lang, 'status_processing').format(order_id=order_id),
+#                 'delivered': lambda lang, order_id: bot_app.get_text(lang, 'status_delivered').format(order_id=order_id),
+#                 'cancelled': lambda lang, order_id: bot_app.get_text(lang, 'status_cancelled').format(order_id=order_id),
+#             }
+
+
+#             message = status_messages.get(
+#                 new_status,
+#                 f'Статус вашего заказа №{order_id} изменен на: {new_status}'
+#             )
+
+#             order.status = new_status
+#             session.commit()
+
+#             if user and user.telegram_id:
+#                 loop = asyncio.new_event_loop()
+#                 asyncio.set_event_loop(loop)
+#                 loop.run_until_complete(send_notification(user.telegram_id, message))
+#                 loop.close()
+
+#             return jsonify({"success": True, "message": f"Статус заказа #{order_id} изменен на {new_status}"})
+#         else:
+#             return jsonify({"success": False, "message": "Заказ не найден или заказ уже в данном статусе!"}), 404
+
+#     except Exception as e:
+#         session.rollback()
+#         return jsonify({"success": False, "message": str(e)}), 500
+#     finally:
+#         session.close()
+
+# @app.route('/api/change-status', methods=['POST'])
+# def change_status():
+#     session = Session()
+#     try:
+#         order_id_raw = request.args.get('orderId')
+#         new_status = request.args.get('status')
+
+#         if not order_id_raw or not new_status:
+#             return jsonify({"success": False, "message": "orderId и status обязательны!"}), 400
+
+#         try:
+#             order_id = int(order_id_raw)
+#         except ValueError:
+#             return jsonify({"success": False, "message": "Неверный формат orderId"}), 400
+
+#         order = session.query(Order).filter(Order.id == order_id).first()
+#         if order and order.status != new_status:
+#             user = session.query(User).filter(User.id == order.user_id).first()
+
+#             if user:
+#                 lang = user.language_code  # Получаем язык из таблицы пользователей
+#             else:
+#                 lang = 'ru'  # Если язык не найден, по умолчанию используем 'ru'
+
+#             status_messages = {
+#                 'processing': lambda lang, order_id: bot_app.get_text(lang, 'status_processing').format(order_id=order_id),
+#                 'delivered': lambda lang, order_id: bot_app.get_text(lang, 'status_delivered').format(order_id=order_id),
+#                 'cancelled': lambda lang, order_id: bot_app.get_text(lang, 'status_cancelled').format(order_id=order_id),
+#             }
+
+#             # Получаем сообщение, вызывая функцию лямбда
+#             message = status_messages.get(
+#                 new_status,
+#                 lambda lang, order_id: bot_app.get_text(lang, 'status_default').format(order_id=order_id)  # Default message
+#             )(lang, order_id)  # Передаем параметры в лямбда-функцию
+
+#             order.status = new_status
+#             session.commit()
+
+#             if user and user.telegram_id:
+#                 loop = asyncio.new_event_loop()
+#                 asyncio.set_event_loop(loop)
+#                 loop.run_until_complete(send_notification(user.telegram_id, message))
+#                 loop.close()
+
+#             return jsonify({"success": True, "message": f"Статус заказа #{order_id} изменен на {new_status}"})
+#         else:
+#             return jsonify({"success": False, "message": "Заказ не найден или заказ уже в данном статусе!"}), 404
+
+#     except Exception as e:
+#         session.rollback()
+#         return jsonify({"success": False, "message": str(e)}), 500
+#     finally:
+#         session.close()
+
+import logging
+
 @app.route('/api/change-status', methods=['POST'])
 def change_status():
     session = Session()
@@ -123,22 +235,22 @@ def change_status():
         if order and order.status != new_status:
             user = session.query(User).filter(User.id == order.user_id).first()
 
-            # status_messages = {
-            #     'processing': f'🔄 Ваш заказ №{order_id} принят в обработку',
-            #     'delivered': f'✅ Ваш заказ №{order_id} успешно доставлен',
-            #     'cancelled': f'❌ Ваш заказ №{order_id} отменен'
-            # }
+            if user:
+                lang = user.language if user.language else 'ru'  # Проверяем, если поле 'language' пустое, то используем 'ru'
+            else:
+                lang = 'ru'  # Если пользователь не найден, по умолчанию используем 'ru'
+
             status_messages = {
                 'processing': lambda lang, order_id: bot_app.get_text(lang, 'status_processing').format(order_id=order_id),
                 'delivered': lambda lang, order_id: bot_app.get_text(lang, 'status_delivered').format(order_id=order_id),
                 'cancelled': lambda lang, order_id: bot_app.get_text(lang, 'status_cancelled').format(order_id=order_id),
             }
 
-
+            # Получаем сообщение, вызывая функцию лямбда
             message = status_messages.get(
                 new_status,
-                f'Статус вашего заказа №{order_id} изменен на: {new_status}'
-            )
+                lambda lang, order_id: bot_app.get_text(lang, 'status_default').format(order_id=order_id)  # Default message
+            )(lang, order_id)  # Передаем параметры в лямбда-функцию
 
             order.status = new_status
             session.commit()
@@ -150,14 +262,19 @@ def change_status():
                 loop.close()
 
             return jsonify({"success": True, "message": f"Статус заказа #{order_id} изменен на {new_status}"})
+
         else:
             return jsonify({"success": False, "message": "Заказ не найден или заказ уже в данном статусе!"}), 404
 
     except Exception as e:
+        logging.error(f"Error: {e}")
         session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500
     finally:
         session.close()
+
+
+
 
 
 if __name__ == '__main__':
